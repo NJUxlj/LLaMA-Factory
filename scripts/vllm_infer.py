@@ -89,12 +89,22 @@ def vllm_infer(
     template_obj = get_template_and_fix_tokenizer(tokenizer, data_args)
     template_obj.mm_plugin.expand_mm_tokens = False  # for vllm generate
 
+    '''
+    mm_plugin 是 LLaMA-Factory 中处理多模态（Multi-Modal）输入的特殊插件，主要用于处理图像、视频和音频等非文本输入。它的核心功能包括：
+
+        1. 输入预处理 ：对图像/视频进行尺寸调整、帧率控制等规范化处理
+        2. 特征提取 ：将多媒体数据转换为模型可处理的嵌入表示
+        3. 输入限制 ：通过 limit_mm_per_prompt 参数控制每种媒体类型的最大输入数量
+        4. 特殊标记处理 ：管理多模态数据对应的特殊token（如 <image> 、 <video> ）
+        在vLLM推理场景中， expand_mm_tokens=False 的设置可以优化多模态token的处理效率。具体来说：   
+    '''
+
     engine_args = {
         "model": model_args.model_name_or_path,
         "trust_remote_code": True,
         "dtype": model_args.infer_dtype,
         "max_model_len": cutoff_len + max_new_tokens,
-        "tensor_parallel_size": (get_device_count() // pipeline_parallel_size) or 1,
+        "tensor_parallel_size": (get_device_count() // pipeline_parallel_size) or 1,  # 假设模型有5层，GPU有10张， 那么， tensor_parallel_size = 10 // 5 = 2
         "pipeline_parallel_size": pipeline_parallel_size,
         "disable_log_stats": True,
         "enable_lora": model_args.adapter_name_or_path is not None,
@@ -123,6 +133,12 @@ def vllm_infer(
     )
     if model_args.adapter_name_or_path is not None:
         lora_request = LoRARequest("default", 1, model_args.adapter_name_or_path[0])
+
+        '''
+        - "default" ：LoRA适配器的名称
+        - 1 ：LoRA适配器的版本号
+        - model_args.adapter_name_or_path[0] ：LoRA适配器的路径（从配置参数中获取）
+        '''
     else:
         lora_request = None
 
