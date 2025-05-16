@@ -714,5 +714,15 @@
       "prompt": "content"
     },
     "folder": "python"
+  },
+
+  "respiratory_medical_processed_data":{
+    "formatting": "alpaca",
+    "file_name": "respiratory_medical_processed_data.json",
+    "columns":{
+      "prompt": "instruction",
+      "query": "input",
+      "response": "output"
+    }
   }
 }
