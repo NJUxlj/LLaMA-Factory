@@ -12,11 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+'''
+这个Python脚本用于评估模型生成的中文文本的质量。
+
+它读取一个JSON文件，该文件包含模型预测的文本（"predict"）和对应的参考文本（"label"）。
+然后，它使用jieba进行中文分词，并计算BLEU和ROUGE指标来衡量预测文本与参考文本的相似度和准确性。
+最后，它计算所有样本的平均分数，并将结果保存到名为 "predictions_score.json" 的文件中。
+'''
+
 import json
 import logging
 import time
 
-import fire
+import fire        # 用于创建命令行接口。
 from datasets import load_dataset
 
 
@@ -33,13 +41,13 @@ except ImportError:
 
 
 def compute_metrics(sample):
-    hypothesis = list(jieba.cut(sample["predict"]))
+    hypothesis = list(jieba.cut(sample["predict"]))     # 使用jieba.cut对预测文本和参考文本进行分词
     reference = list(jieba.cut(sample["label"]))
 
     bleu_score = sentence_bleu(
         [list(sample["label"])],
         list(sample["predict"]),
-        smoothing_function=SmoothingFunction().method3,
+        smoothing_function=SmoothingFunction().method3,   # 用了平滑函数来处理n-gram不存在的情况。
     )
 
     if len(" ".join(hypothesis).split()) == 0 or len(" ".join(reference).split()) == 0:
@@ -61,6 +69,7 @@ def compute_metrics(sample):
 def main(filename: str):
     start_time = time.time()
     dataset = load_dataset("json", data_files=filename, split="train")
+    # 用dataset.map将compute_metrics函数应用于数据集中的每个样本，并行处理（num_proc=8）。remove_columns参数用于删除原始的 "predict" 和 "label" 列。
     dataset = dataset.map(compute_metrics, num_proc=8, remove_columns=dataset.column_names)
     score_dict = dataset.to_dict()
 
@@ -76,4 +85,4 @@ def main(filename: str):
 
 
 if __name__ == "__main__":
-    fire.Fire(main)
+    fire.Fire(main)  # 启动命令行界面
