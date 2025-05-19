@@ -484,7 +484,7 @@ def register_template(
     ```
     register_template(
         name="custom",
-        format_user=StringFormatter(slots=["<user>{{content}}\n<model>"]),
+        format_user=StringFormatter(slots=["<>user{{content}}\n<model>"]),
         format_assistant=StringFormatter(slots=["{{content}}</s>\n"]),
         format_prefix=EmptyFormatter("<s>"),
     )
@@ -1526,20 +1526,46 @@ register_template(
 
 
 # copied from chatml template
+# register_template(
+#     name="qwen",
+#     format_user=StringFormatter(slots=["<|im_start|>user\n{{content}}<|im_end|>\n<|im_start|>assistant\n"]),
+#     format_assistant=StringFormatter(slots=["{{content}}<|im_end|>\n"]),
+#     format_system=StringFormatter(slots=["<|im_start|>system\n{{content}}<|im_end|>\n"]),
+#     format_function=FunctionFormatter(slots=["{{content}}<|im_end|>\n"], tool_format="qwen"),
+#     format_observation=StringFormatter(
+#         slots=["<|im_start|>user\n<tool_response>\n{{content}}\n</tool_response><|im_end|>\n<|im_start|>assistant\n"]
+#     ),
+#     format_tools=ToolFormatter(tool_format="qwen"),
+#     default_system="You are Qwen, created by Alibaba Cloud. You are a helpful assistant.",
+#     stop_words=["<|im_end|>"],
+#     replace_eos=True,
+# )
+
 register_template(
     name="qwen",
     format_user=StringFormatter(slots=["<|im_start|>user\n{{content}}<|im_end|>\n<|im_start|>assistant\n"]),
     format_assistant=StringFormatter(slots=["{{content}}<|im_end|>\n"]),
-    format_system=StringFormatter(slots=["<|im_start|>system\n{{content}}<|im_end|>\n"]),
-    format_function=FunctionFormatter(slots=["{{content}}<|im_end|>\n"], tool_format="qwen"),
-    format_observation=StringFormatter(
-        slots=["<|im_start|>user\n<tool_response>\n{{content}}\n</tool_response><|im_end|>\n<|im_start|>assistant\n"]
-    ),
-    format_tools=ToolFormatter(tool_format="qwen"),
-    default_system="You are Qwen, created by Alibaba Cloud. You are a helpful assistant.",
+    format_system=None,
+    format_function=None,
+    format_observation=None,
+    format_tools=None,
+    default_system="",
     stop_words=["<|im_end|>"],
     replace_eos=True,
 )
+
+'''
+- replace_eos 工作机制 ：
+
+- 当设置为True时，会使用模板中 stop_words 列表的第一个词作为新的eos_token
+- 如果 stop_words 列表为空，会抛出ValueError异常
+- 原有的eos_token会被替换为指定的stop word
+- 使用场景 ：
+
+- 需要自定义模型生成结束符的场景
+- 当模板系统需要特定的结束标记来控制生成过程时
+
+'''
 
 
 # copied from qwen template

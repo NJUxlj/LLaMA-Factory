@@ -724,5 +724,38 @@
       "query": "input",
       "response": "output"
     }
+  },
+
+  "呼吸_data3_processed":{
+    "formatting": "alpaca",
+    "file_name": "呼吸_data3_processed.json",
+    "columns":{
+      "prompt": "instruction",
+      "query": "input",
+      "response": "output"
+    }
+  },
+
+  "呼吸科_病历生成诊断_train_processed":{
+    "formatting": "alpaca",
+    "file_name": "呼吸科_病历生成诊断_train_processed.json",
+    "columns":{
+      "prompt": "instruction",
+      "query": "input",
+      "response": "output"
+    }
+  },
+
+  "呼吸科_病历生成诊断_test_processed":{
+    "formatting": "alpaca",
+    "file_name": "呼吸科_病历生成诊断_test_processed.json",
+    "columns":{
+      "prompt": "instruction",
+      "query": "input",
+      "response": "output"
+    }
   }
+
+
+  
 }
