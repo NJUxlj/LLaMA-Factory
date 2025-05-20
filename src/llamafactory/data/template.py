@@ -171,7 +171,7 @@ class Template:
                     elements += self.format_system.apply(content=(system + tool_text))
 
             if message["role"] == Role.USER:
-                elements += self.format_user.apply(content=message["content"], idx=str(i // 2))
+                elements += self.format_user.apply(content=message["content"], idx=str(i // 2))   # str(i // 2) 代表 user-assistant pair 的轮数
             elif message["role"] == Role.ASSISTANT:
                 elements += self.format_assistant.apply(content=message["content"])
             elif message["role"] == Role.OBSERVATION:
@@ -876,6 +876,27 @@ register_template(
     template_class=ReasoningTemplate,
 )
 
+'''
+在 deepseekr1 模版中指定 template_class=ReasoningTemplate 的原因和原理如下：
+
+1. 思维链推理支持 ：
+   
+   - ReasoningTemplate是专门设计用于支持模型展示"思考过程"的模板类
+   - 通过 <think> 和 </think> 标记来结构化模型的推理过程
+2. 功能扩展 ：
+   
+   - 继承自基础Template类并添加了思维链相关方法
+   - 实现了 add_thought / remove_thought 等方法管理思考标记
+3. 训练优化 ：
+   
+   - 固定的思考标记格式帮助模型学习推理模式
+   - 在多轮对话中智能管理思考标记的保留与移除
+4. deepseekr1模板需求 ：
+   
+   - 该模板需要模型展示推理过程
+   - ReasoningTemplate提供了现成的思维链实现方案
+
+'''
 
 register_template(
     name="deepseekcoder",
