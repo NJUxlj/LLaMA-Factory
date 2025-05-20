@@ -754,8 +754,15 @@
       "query": "input",
       "response": "output"
     }
+  },
+
+  "呼吸科_病历生成诊断_test_processed_for_inference_only":{
+    "formatting": "alpaca",
+    "file_name": "呼吸科_病历生成诊断_test_processed_for_inference_only.json",
+    "columns":{
+      "prompt": "instruction",
+      "query": "input",
+      "response": "output"
+    }
   }
-
-
-  
 }
