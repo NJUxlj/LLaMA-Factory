@@ -15,7 +15,7 @@
 import re
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Optional, Union, Dict, List, Tuple
 
 from typing_extensions import override
 
@@ -95,13 +95,34 @@ class Template:
         return list(stop_token_ids)
 
     def add_thought(self, content: str) -> str:
-        r"""Add empty thought to assistant message."""
+        r"""Add empty thought to assistant message.
+        
+        - thought_words[0] 作为思考开始标记
+        - thought_words[1] 作为思考结束标记
+            - 中间用两个换行符 \n\n 分隔，形成清晰的思考区域
+            便于后续 `remove_thought` 方法准确移除思考标记
+
+        模型训练需求 ：
+            - 帮助模型识别和生成"思考过程"的特殊文本模式
+            - 固定的标记格式使模型更容易学习思考区域的边界
+        """
         return f"{self.thought_words[0]}\n\n{self.thought_words[1]}\n\n" + content
 
     def remove_thought(self, content: str) -> str:
-        r"""Remove thought from assistant message."""
+        r"""Remove thought from assistant message.
+            - 匹配格式： 思考开始标记 + 任意内容 + 思考结束标记
+
+            content : 包含思考标记的原始助手消息内容
+            re.escape() 确保特殊字符被正确转义处理
+        
+            使用场景：
+                - 在多轮对话编码时，对中间助手消息调用此方法
+                - 保留最后一个助手消息的思考标记，移除中间消息的思考标记
+                - 确保对话连贯性的同时避免重复思考标记
+        """
         pattern = re.compile(f"{re.escape(self.thought_words[0])}(.*?){re.escape(self.thought_words[1])}", re.DOTALL)
-        return re.sub(pattern, "", content).lstrip("\n")
+        # 将匹配到的思考标记及其中间内容全部替换为空字符串，如果匹配不到，说明不是思维链，返回原始消息
+        return re.sub(pattern, "", content).lstrip("\n") 
 
     def get_thought_word_ids(self, tokenizer: "PreTrainedTokenizer") -> list[int]:
         r"""Get the token ids of thought words."""
@@ -397,7 +418,12 @@ class Llama2Template(Template):
 
 @dataclass
 class ReasoningTemplate(Template):
-    r"""A template that add thought to assistant message."""
+    r"""A template that add thought to assistant message.
+    
+    - 这是一个继承自 `Template` 的数据类
+    - 专门用于处理带有"思考过程"的助手消息模板
+    - 主要功能是在助手消息中添加/移除思考标记
+    """
 
     @override
     def encode_oneturn(
@@ -408,22 +434,32 @@ class ReasoningTemplate(Template):
         tools: Optional[str] = None,
         enable_thinking: bool = False,
     ) -> tuple[list[int], list[int]]:
+        '''
+        - 处理单轮对话编码
+        - 会移除中间助手消息中的思考标记（保留最后一个）
+        - 如果未启用思考模式(enable_thinking=False)，会在最后一个助手消息前添加思考标记
+
+        :return:
+            (prompt_ids, response_ids)
+                - prompt_ids: 前n-1轮对话ids+思考词id
+                - response_ids: 最后一轮对话的ids
+        '''
         messages = deepcopy(messages)
         for i in range(len(messages)):
-            if messages[i]["role"] == Role.ASSISTANT and (i != len(messages) - 1):
+            if messages[i]["role"] == Role.ASSISTANT and (i != len(messages) - 1): # 如果是助手消息，并且不是最后一条消息 
                 messages[i]["content"] = self.remove_thought(messages[i]["content"])
 
         encoded_messages = self._encode(tokenizer, messages, system, tools)
         prompt_ids = []
-        for encoded_ids in encoded_messages[:-1]:
+        for encoded_ids in encoded_messages[:-1]: # 取前 n-1 轮编码后的对话
             prompt_ids += encoded_ids
 
-        if not enable_thinking and (
+        if not enable_thinking and (  # 最后一轮消息是助手发出的，并且内容中没有包含思考词
             messages[-1]["role"] == Role.ASSISTANT
             and self.thought_words[0] not in messages[-1]["content"]
             and self.thought_words[1] not in messages[-1]["content"]
         ):
-            prompt_ids += self.get_thought_word_ids(tokenizer)
+            prompt_ids += self.get_thought_word_ids(tokenizer) # 在前n-1轮对话的最后加上思考词
 
         response_ids = encoded_messages[-1]
         return prompt_ids, response_ids
