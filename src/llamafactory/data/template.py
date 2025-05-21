@@ -62,7 +62,9 @@ class Template:
         tools: Optional[str] = None,
         enable_thinking: bool = False,
     ) -> tuple[list[int], list[int]]:
-        r"""Return a single pair of token ids representing prompt and response respectively."""
+        r"""Return a single pair of token ids representing prompt and response respectively.
+
+        """
         encoded_messages = self._encode(tokenizer, messages, system, tools)
         prompt_ids = []
         for encoded_ids in encoded_messages[:-1]:
@@ -438,6 +440,13 @@ class ReasoningTemplate(Template):
         - 处理单轮对话编码
         - 会移除中间助手消息中的思考标记（保留最后一个）
         - 如果未启用思考模式(enable_thinking=False)，会在最后一个助手消息前添加思考标记
+         
+        :enable_thinking: 
+            - 当 enable_thinking=False 时，会自动添加思考标记
+            - 当 enable_thinking=True 时，则不会添加思考标记
+        - 设计原因 ：
+            - 这是为了在训练时强制模型学习思考模式（False时自动添加）
+            - 在推理时允许模型自主决定是否思考（True时不强制）
 
         :return:
             (prompt_ids, response_ids)
@@ -557,6 +566,9 @@ def parse_template(tokenizer: "PreTrainedTokenizer") -> "Template":
     r"""Extract a chat template from the tokenizer."""
 
     def find_diff(short_str: str, long_str: str) -> str:
+        '''
+        找出两个字符串中的不相同的部分
+        '''
         i, j = 0, 0
         diff = ""
         while i < len(short_str) and j < len(long_str):
@@ -572,6 +584,40 @@ def parse_template(tokenizer: "PreTrainedTokenizer") -> "Template":
     prefix = tokenizer.decode(tokenizer.encode(""))
 
     messages = [{"role": "system", "content": "{{content}}"}]
+    # 使用tokenizer的 apply_chat_template 方法将messages转换为聊天格式的字符串
+    '''
+    具体来说，先将message转换为这样的json对象
+
+    {
+        "messages": [
+            {"role": "system", "content": "你是一个有帮助的AI助手"},
+            {"role": "user", "content": "你好！"},
+            {"role": "assistant", "content": "你好！有什么我可以帮忙的吗？"}
+        ]
+    }
+    再根据你使用的实际模板template，来转换成最终输入模型的prompt字符串
+
+    假设我们使用qwen3的模板，`apply_template`返回的prompt字符串格式如下：
+
+    1. 基础对话格式：
+    ```plaintext
+    <|im_start|>user\n你好<|im_end|>\n<|im_start|>assistant\n
+    ```
+
+    2. 包含思考标记的格式：
+    ```plaintext
+    <|im_start|>user\n你好<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n
+    ```
+
+    3. 完整对话示例：
+    ```plaintext
+    <|im_start|>user\nHow are you<|im_end|>\n
+    <|im_start|>assistant\nI am fine!<|im_end|>\n
+    <|im_start|>user\n你好<|im_end|>\n
+    <|im_start|>assistant\n
+    ```
+   
+    '''
     system_slot = tokenizer.apply_chat_template(messages, add_generation_prompt=False, tokenize=False)[len(prefix) :]
 
     messages = [{"role": "system", "content": ""}, {"role": "user", "content": "{{content}}"}]
@@ -587,10 +633,16 @@ def parse_template(tokenizer: "PreTrainedTokenizer") -> "Template":
     assistant_slot = assistant_slot[len(prefix) + len(user_slot) :]
     assistant_slot = assistant_slot.replace("<think>", "").replace("</think>", "").lstrip("\n")  # remove thought tags
 
+    '''
+    1. 避免重复标记 ：思考标记已在 encode_oneturn 或 encode_multiturn 方法中统一处理，这里需要清理残留标记
+    2. 模板标准化 ：确保最终输出的assistant消息是纯净的响应内容，不含额外的格式标记
+        - 这种处理方式与 ReasoningTemplate 的设计理念一致，即在适当位置展示思考过程，同时保持最终输出的简洁性。
+    '''
+
     if len(user_slot) > len(user_slot_empty_system):
-        default_system = find_diff(user_slot_empty_system, user_slot)
-        sole_system = system_slot.replace("{{content}}", default_system, 1)
-        user_slot = user_slot[len(sole_system) :]
+        default_system = find_diff(user_slot_empty_system, user_slot)   # 通过 find_diff 函数找出两者差异部分作为默认系统消息
+        sole_system = system_slot.replace("{{content}}", default_system, 1)   # 将系统消息模板中的 {{content}} 替换为默认系统消息
+        user_slot = user_slot[len(sole_system) :]        # 从用户消息模板中移除已处理的系统消息部分
     else:  # if defaut_system is empty, user_slot_empty_system will be longer than user_slot
         default_system = ""
 

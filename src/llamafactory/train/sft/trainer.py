@@ -25,7 +25,7 @@ import torch
 from transformers import Seq2SeqTrainer
 from typing_extensions import override
 
-from ...extras import logging
+from ...extras import logging    # ... 要求每一层级的包中都有  __init__.py 文件
 from ...extras.constants import IGNORE_INDEX
 from ...extras.packages import is_transformers_version_greater_than
 from ..callbacks import SaveProcessorCallback
@@ -34,7 +34,7 @@ from ..trainer_utils import create_custom_optimizer, create_custom_scheduler
 
 if TYPE_CHECKING:
     from torch.utils.data import Dataset
-    from transformers import PreTrainedTokenizer, ProcessorMixin
+    from transformers import PreTrainedTokenizer, ProcessorMixin  
     from transformers.trainer import PredictionOutput
 
     from ...hparams import FinetuningArguments

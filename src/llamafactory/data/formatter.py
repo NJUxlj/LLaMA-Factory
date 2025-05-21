@@ -74,7 +74,7 @@ class StringFormatter(Formatter):
         elements = []
         for slot in self.slots:
             if isinstance(slot, str):
-                for name, value in kwargs.items():
+                for name, value in kwargs.items():  # 所有的name应该都是 “content”
                     if not isinstance(value, str):
                         raise RuntimeError(f"Expected a string, got {value}")
 
