@@ -9,7 +9,7 @@ finetuning_type: lora
 lora_rank: 8
 lora_alpha: 16
 lora_dropout: 0
-lora_target: all
+lora_target: all 
 
 ### deepspeed
 deepspeed: examples/deepspeed/ds_z3_config.json  # choices: [ds_z0_config.json, ds_z2_config.json, ds_z3_config.json]

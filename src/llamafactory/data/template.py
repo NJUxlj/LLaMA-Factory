@@ -437,15 +437,15 @@ class ReasoningTemplate(Template):
         enable_thinking: bool = False,
     ) -> tuple[list[int], list[int]]:
         '''
-        - 处理单轮对话编码
-        - 会移除中间助手消息中的思考标记（保留最后一个）
+        作用：对单轮对话进行编码
+        - 会移除中间助手消息中的思考标记<think><think>,以及其中的内容（保留最后一轮中的思考标记）, 使得最后一个助手消息中的内容是 "<think> ....思维链.... </think>  总结输出。。。"
         - 如果未启用思考模式(enable_thinking=False)，会在最后一个助手消息前添加思考标记
          
         :enable_thinking: 
             - 当 enable_thinking=False 时，会自动添加思考标记
             - 当 enable_thinking=True 时，则不会添加思考标记
         - 设计原因 ：
-            - 这是为了在训练时强制模型学习思考模式（False时自动添加）
+            - 这是为了在训练时 **强制模型学习思考模式**（False时自动添加）
             - 在推理时允许模型自主决定是否思考（True时不强制）
 
         :return:
@@ -463,12 +463,12 @@ class ReasoningTemplate(Template):
         for encoded_ids in encoded_messages[:-1]: # 取前 n-1 轮编码后的对话
             prompt_ids += encoded_ids
 
-        if not enable_thinking and (  # 最后一轮消息是助手发出的，并且内容中没有包含思考词
+        if not enable_thinking and (  # 如果开启了训练模式（enable_thinking==False），并且最后一轮消息是助手发出的，并且内容中没有包含思考词
             messages[-1]["role"] == Role.ASSISTANT
             and self.thought_words[0] not in messages[-1]["content"]
             and self.thought_words[1] not in messages[-1]["content"]
         ):
-            prompt_ids += self.get_thought_word_ids(tokenizer) # 在前n-1轮对话的最后加上思考词
+            prompt_ids += self.get_thought_word_ids(tokenizer) # 在前n-1轮对话的最后加上思考词 "<think></think>", 引导模型在最后一轮对话中输出思维链。
 
         response_ids = encoded_messages[-1]
         return prompt_ids, response_ids
@@ -481,6 +481,16 @@ class ReasoningTemplate(Template):
         system: Optional[str] = None,
         tools: Optional[str] = None,
     ) -> list[tuple[list[int], list[int]]]:
+        '''
+        - 功能：处理多轮对话编码，返回[(prompt_ids, response_ids)]列表
+        - 关键逻辑：
+            - 同样使用deepcopy保护原始数据
+            - 为每个助手响应添加思考标记（如果不存在）
+            - 将对话编码为成对的(prompt, response)序列
+        - 设计目的：
+            - 保持多轮对话中思考标记的一致性
+            - 确保模型能正确处理对话上下文
+        '''
         messages = deepcopy(messages)
         encoded_messages = self._encode(tokenizer, messages, system, tools)
         for i in range(len(messages) - 1):
@@ -489,6 +499,7 @@ class ReasoningTemplate(Template):
                 and self.thought_words[0] not in messages[i + 1]["content"]
                 and self.thought_words[1] not in messages[i + 1]["content"]
             ):
+                # 如果第i+1条消息（assistant的输出）不包含思考词，就在第i条消息（user的输入）的末尾强制添加思考词 "<think></think>", 这么做是为了在第i+1轮引导模型输出 <think>...思维链...</think>。
                 encoded_messages[i] += self.get_thought_word_ids(tokenizer)
 
         return [(encoded_messages[i], encoded_messages[i + 1]) for i in range(0, len(encoded_messages), 2)]
@@ -1690,7 +1701,7 @@ register_template(
     format_tools=ToolFormatter(tool_format="qwen"),
     stop_words=["<|im_end|>"],
     replace_eos=True,
-    template_class=ReasoningTemplate,
+    template_class=ReasoningTemplate,   
 )
 
 
